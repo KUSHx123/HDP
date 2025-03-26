@@ -8,7 +8,15 @@ export const usePredictions = (userId: string) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
     const fetchPredictions = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
         const { data, error } = await supabase
           .from('predictions')
@@ -25,8 +33,10 @@ export const usePredictions = (userId: string) => {
       }
     };
 
+    fetchPredictions();
+
     // Set up real-time subscription
-    const subscription = supabase
+    const channel = supabase
       .channel('predictions_changes')
       .on(
         'postgres_changes',
@@ -42,13 +52,12 @@ export const usePredictions = (userId: string) => {
       )
       .subscribe();
 
-    fetchPredictions();
-
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [userId]);
 
+  // Function to save a prediction
   const savePrediction = async (prediction: Omit<PredictionData, 'id'>) => {
     try {
       const { data, error } = await supabase
@@ -58,9 +67,9 @@ export const usePredictions = (userId: string) => {
         .single();
 
       if (error) throw error;
-      return { data, error: null };
+      return data;
     } catch (err) {
-      return { data: null, error: err instanceof Error ? err.message : 'An error occurred' };
+      return { error: err instanceof Error ? err.message : 'An error occurred' };
     }
   };
 

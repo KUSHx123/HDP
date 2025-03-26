@@ -1,159 +1,189 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, AuthError, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import axios from 'axios';
 
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+type UserType = {
+  id: string;
+  email: string;
+  fullName: string;
+  user_metadata?: {
+    avatar_url?: string;
+    full_name?: string;
+    role?: string;
+  };
+};
+
+export type AuthContextType = {
+  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error?: string }>;
+  signOut: () => void;
+  updateProfile: (fullName: string, file?: File) => Promise<{ error?: string }>;
+  deleteAccount: () => Promise<{ error?: string }>; // ✅ Added deleteAccount
+  token: string | null;
+  user: UserType | null;
   isLoading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signOut: () => Promise<void>;
-  deleteAccount: () => Promise<{ error: AuthError | null }>;
-  updateProfile: (data: { fullName?: string; avatarUrl?: string }) => Promise<{ error: Error | null }>;
-}
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token') || null);
+  const [user, setUser] = useState<UserType | null>(
+    localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Initialize the session
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      setIsLoading(false);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signUp = async (email: string, password: string, fullName: string) => {
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
-      return { error };
-    } catch (error) {
-      return { error: error as AuthError };
-    }
-  };
-
+  // ✅ Sign In function
   const signIn = async (email: string, password: string) => {
+    setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      return { error };
-    } catch (error) {
-      return { error: error as AuthError };
-    }
-  };
+      const response = await axios.post('http://localhost:8000/login', { email, password });
 
-  const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+      if (response.data.access_token) {
+        setToken(response.data.access_token);
 
-  const deleteAccount = async () => {
-    if (!user) return { error: new Error('No user logged in') };
-    
-    try {
-      const { error: deleteError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('user_id', user.id);
-      
-      if (deleteError) throw deleteError;
-      
-      // Sign out after account deletion
-      await signOut();
-      
-      return { error: null };
-    } catch (error) {
-      return { error: error as AuthError };
-    }
-  };
+        const newUser: UserType = {
+          id: response.data.user.id,
+          email: response.data.user.email,
+          fullName: response.data.user.fullName,
+          user_metadata: response.data.user.user_metadata,
+        };
 
-  const updateProfile = async (data: { fullName?: string; avatarUrl?: string }) => {
-    try {
-      if (!user) throw new Error('No user logged in');
-
-      const updates = {
-        user_id: user.id,
-        full_name: data.fullName,
-        avatar_url: data.avatarUrl,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase
-        .from('profiles')
-        .upsert(updates)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      // Update the user metadata in the session
-      if (data.fullName) {
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: { full_name: data.fullName },
-        });
-
-        if (updateError) throw updateError;
+        setUser(newUser);
+        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('user', JSON.stringify(newUser));
       }
 
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
+      return {};
+    } catch (error: any) {
+      return { error: error.response?.data?.detail || 'Login failed' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ✅ Sign Up function
+  const signUp = async (email: string, password: string, fullName: string) => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post('http://localhost:8000/signup', {
+        username: fullName,
+        password,
+        email
+      });
+
+      if (response.data.access_token) {
+        setToken(response.data.access_token);
+
+        const newUser: UserType = {
+          id: response.data.user.id,
+          email: response.data.user.email,
+          fullName: response.data.user.fullName,
+          user_metadata: response.data.user.user_metadata,
+        };
+
+        setUser(newUser);
+        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('user', JSON.stringify(newUser));
+      }
+
+      return {};
+    } catch (error: any) {
+      return { error: error.response?.data?.detail || 'Signup failed' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ✅ Sign Out function
+  const signOut = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  };
+
+  // ✅ Update Profile function
+  const updateProfile = async (fullName: string, file?: File) => {
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('fullName', fullName);
+      if (file) {
+        formData.append('avatar', file);
+      }
+
+      const response = await axios.put('http://localhost:8000/profile', formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data) {
+        const updatedUser: UserType = {
+          id: response.data.user.id,
+          email: response.data.user.email,
+          fullName: response.data.user.full_name, // ✅ Fixed to fullName
+          user_metadata: response.data.user.user_metadata || {},
+        };
+
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+
+      return {};
+    } catch (error: any) {
+      return { error: error.response?.data?.detail || 'Profile update failed' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ✅ Delete Account function
+  const deleteAccount = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.delete('http://localhost:8000/user/delete', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 200) {
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+
+      return {};
+    } catch (error: any) {
+      return { error: error.response?.data?.detail || 'Failed to delete account' };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user,
-        session,
-        isLoading,
-        signUp,
         signIn,
+        signUp,
         signOut,
-        deleteAccount,
         updateProfile,
+        deleteAccount, // ✅ Added to context
+        token,
+        user,
+        isLoading,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  return context;
 };

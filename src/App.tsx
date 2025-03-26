@@ -1,53 +1,57 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import PublicLayout from './components/layouts/PublicLayout';
 import DashboardLayout from './components/layouts/DashboardLayout';
-import Home from './pages/Home';
-import About from './pages/About';
-import Predict from './pages/Predict';
-import FAQ from './pages/FAQ';
-import Contact from './pages/Contact';
-import Login from './pages/Login';
-import SignUp from './pages/SignUp';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Results from './pages/Results';
-import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 
-function App() {
+// ✅ Lazy load components for better performance
+const Home = lazy(() => import('./pages/Home'));
+const About = lazy(() => import('./pages/About'));
+const Predict = lazy(() => import('./pages/Predict'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Login = lazy(() => import('./pages/Login'));
+const SignUp = lazy(() => import('./pages/SignUp'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Results = lazy(() => import('./pages/Results'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Profile = lazy(() => import('./pages/Profile'));
+
+const App = () => {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          {/* Public Routes */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-          </Route>
+        <Suspense fallback={<div className="flex justify-center items-center h-screen">Loading...</div>}>
+          <Routes>
+            {/* ✅ Public Routes */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+            </Route>
 
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/predict" element={<Predict />} />
-            <Route path="/results" element={<Results />} />
-            <Route path="/profile" element={<Profile />} />
-          </Route>
+            {/* ✅ Protected Routes */}
+            <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/predict" element={<Predict />} />
+              <Route path="/results" element={<Results />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* ✅ Fallback Route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </Router>
     </AuthProvider>
   );
-}
+};
 
 export default App;

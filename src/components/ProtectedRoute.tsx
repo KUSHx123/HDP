@@ -11,14 +11,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-gray-600 text-lg">Loading...</p>
+      </div>
+    );
   }
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole && user.role !== 'admin') {
+  // ✅ Access user role from user_metadata
+  const userRole = user.user_metadata?.role;
+
+  if (requiredRole && userRole !== requiredRole && userRole !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 

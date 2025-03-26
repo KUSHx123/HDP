@@ -38,11 +38,11 @@ const Navbar = () => {
                 <div className="flex items-center space-x-4">
                   <Link to="/profile" className="flex items-center">
                     <img
-                      src={user.user_metadata.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_metadata.full_name)}&background=random`}
-                      alt={user.user_metadata.full_name}
+                      src={user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.full_name || '')}&background=random`}
+                      alt={user?.user_metadata?.full_name || 'User'}
                       className="h-8 w-8 rounded-full"
                     />
-                    <span className="ml-2 text-gray-700">{user.user_metadata.full_name}</span>
+                    <span className="ml-2 text-gray-700">{user?.user_metadata?.full_name || 'User'}</span>
                   </Link>
                   <button
                     onClick={handleSignOut}

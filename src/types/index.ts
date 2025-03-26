@@ -12,22 +12,29 @@ export interface User {
 }
 
 export interface PredictionData {
+  id: string; // Unique identifier
+  user_id: string; // Reference to user
   age: number;
-  gender: 'male' | 'female';
+  gender: 'male' | 'female'; // Ensuring frontend consistency
   cholesterol: number;
   bloodPressure: number;
   heartRate: number;
   glucose: number;
-  chestPainType: 'typical' | 'atypical' | 'nonAnginal' | 'asymptomatic';
+  chestPainType: number;
   fastingBloodSugar: boolean;
-  restingECG: 'normal' | 'sttWaveAbnormality' | 'leftVentricularHypertrophy';
-  exerciseAngina: boolean;
+  restingECG: number;
+  exerciseAngina: boolean; // ✅ Ensure this exists
   stDepression: number;
-  stSlope: 'upsloping' | 'flat' | 'downsloping';
-  numVessels: 0 | 1 | 2 | 3;
-  thalassemia: 'normal' | 'fixedDefect' | 'reversibleDefect';
-  target?: boolean;
+  stSlope: number;
+  numVessels: number;
+  thalassemia: number;
+  probability?: number;
+  risk_level?: number;
+  created_at: string; // Timestamp
 }
+
+// ✅ Ensure `ApiPredictionData` matches FastAPI expectations
+export type ApiPredictionData = Omit<PredictionData, 'id' | 'created_at' | 'user_id'>;
 
 export interface PredictionResult {
   probability: number;
